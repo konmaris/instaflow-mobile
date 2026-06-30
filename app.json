@@ -10,7 +10,8 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Instaflow uses your location to show customers live delivery tracking while you are on shift."
-      }
+      },
+      "bundleIdentifier": "com.konmaris.instaflow-mobile"
     },
     "android": {
       "adaptiveIcon": {
@@ -20,11 +21,18 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-location"]
+    "plugins": [
+      "expo-location"
+    ]
   }
 }
