@@ -1,9 +1,20 @@
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import type { Profile } from "../lib/supabase";
 import { supabase } from "../lib/supabase";
 import type { useShift } from "../store/shift";
 import { isTrackingAsync } from "../lib/tracking";
+import { colors, radius, shadow } from "../theme";
 
 export function ShiftScreen({
   profile,
@@ -16,13 +27,12 @@ export function ShiftScreen({
   const [cash, setCash] = useState("0");
   const [tips, setTips] = useState(0);
   const [tracking, setTracking] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  // Reflect background GPS state.
   useEffect(() => {
     isTrackingAsync().then(setTracking);
   }, [shift]);
 
-  // Pull this shift's card tips total for display.
   useEffect(() => {
     if (!shift) return;
     supabase
@@ -33,65 +43,93 @@ export function ShiftScreen({
   }, [shift]);
 
   const doOpen = async () => {
+    setBusy(true);
     try {
       await openShift(Number(cash) || 0);
     } catch (e) {
-      Alert.alert("Could not open shift", String(e));
+      Alert.alert("Could not start shift", String(e));
+    } finally {
+      setBusy(false);
     }
   };
 
   const doClose = async () => {
+    setBusy(true);
     try {
       await closeShift(Number(cash) || 0);
-      Alert.alert("Shift closed", "Have a good rest!");
+      Alert.alert("Shift closed", "Nice work today!");
     } catch (e) {
-      Alert.alert("Could not close shift", String(e));
+      Alert.alert("Could not end shift", String(e));
+    } finally {
+      setBusy(false);
     }
   };
 
-  if (loading) return <View style={styles.container}><Text>Loading…</Text></View>;
+  if (loading)
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 16 }}>
-      <Text style={styles.title}>Shift</Text>
-
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {!shift ? (
-        <View style={styles.card}>
+        <View style={styles.hero}>
+          <View style={styles.heroIcon}>
+            <Ionicons name="power" size={30} color={colors.accent} />
+          </View>
+          <Text style={styles.heroTitle}>Start your shift</Text>
+          <Text style={styles.heroSub}>
+            {profile.role === "rider"
+              ? "GPS sharing turns on so customers can track deliveries."
+              : "Track your orders and balances for the shift."}
+          </Text>
+
           <Text style={styles.label}>Opening cash (€)</Text>
           <TextInput
             style={styles.input}
             keyboardType="decimal-pad"
             value={cash}
             onChangeText={setCash}
+            placeholderTextColor={colors.muted}
           />
-          <TouchableOpacity style={styles.primary} onPress={doOpen}>
-            <Text style={styles.primaryText}>Start shift</Text>
+          <TouchableOpacity style={styles.primary} onPress={doOpen} disabled={busy} activeOpacity={0.85}>
+            {busy ? <ActivityIndicator color="#fff" /> : (
+              <>
+                <Ionicons name="play" size={18} color="#fff" />
+                <Text style={styles.primaryText}>Start shift</Text>
+              </>
+            )}
           </TouchableOpacity>
-          {profile.role === "rider" && (
-            <Text style={styles.note}>Starting a shift enables GPS tracking.</Text>
-          )}
         </View>
       ) : (
         <>
-          <View style={styles.card}>
-            <Text style={styles.status}>● On shift</Text>
-            <Text style={styles.note}>
-              Started {new Date(shift.started_at).toLocaleTimeString()}
-            </Text>
+          <View style={styles.banner}>
+            <View style={styles.bannerLeft}>
+              <View style={styles.liveDot} />
+              <View>
+                <Text style={styles.bannerTitle}>You're on shift</Text>
+                <Text style={styles.bannerSub}>
+                  Since {new Date(shift.started_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </Text>
+              </View>
+            </View>
             {profile.role === "rider" && (
-              <Text style={styles.note}>
-                GPS: {tracking ? "tracking" : "off"}
-              </Text>
+              <View style={styles.gpsPill}>
+                <Ionicons name="location" size={14} color={tracking ? colors.green : colors.muted} />
+                <Text style={[styles.gpsText, { color: tracking ? colors.green : colors.muted }]}>
+                  {tracking ? "GPS on" : "GPS off"}
+                </Text>
+              </View>
             )}
           </View>
 
-          <View style={styles.statsRow}>
-            <Stat label="Cash collected" value={`€${Number(shift.cash_collected).toFixed(2)}`} />
-            <Stat label="Card" value={`€${Number(shift.card_collected).toFixed(2)}`} />
-          </View>
-          <View style={styles.statsRow}>
-            <Stat label="Tips (card)" value={`€${tips.toFixed(2)}`} />
-            <Stat label="Orders" value={String(shift.orders_count)} />
+          <View style={styles.statGrid}>
+            <Stat icon="cash-outline" tint={colors.green} label="Cash collected" value={`€${num(shift.cash_collected)}`} />
+            <Stat icon="card-outline" tint={colors.blue} label="Card" value={`€${num(shift.card_collected)}`} />
+            <Stat icon="happy-outline" tint={colors.accent} label="Tips (card)" value={`€${tips.toFixed(2)}`} />
+            <Stat icon="bag-check-outline" tint={colors.inkSoft} label="Orders" value={String(shift.orders_count)} />
           </View>
 
           <View style={styles.card}>
@@ -101,23 +139,49 @@ export function ShiftScreen({
               keyboardType="decimal-pad"
               value={cash}
               onChangeText={setCash}
+              placeholderTextColor={colors.muted}
             />
-            <TouchableOpacity style={[styles.primary, { backgroundColor: "#dc2626" }]} onPress={doClose}>
-              <Text style={styles.primaryText}>End shift</Text>
+            <TouchableOpacity
+              style={[styles.primary, { backgroundColor: colors.red }]}
+              onPress={doClose}
+              disabled={busy}
+              activeOpacity={0.85}
+            >
+              {busy ? <ActivityIndicator color="#fff" /> : (
+                <>
+                  <Ionicons name="stop" size={18} color="#fff" />
+                  <Text style={styles.primaryText}>End shift</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </>
       )}
-      <TouchableOpacity onPress={refresh} style={{ marginTop: 12 }}>
-        <Text style={{ color: "#6b7280", textAlign: "center" }}>Refresh</Text>
+
+      <TouchableOpacity onPress={refresh} style={styles.refresh}>
+        <Ionicons name="refresh" size={15} color={colors.muted} />
+        <Text style={styles.refreshText}>Refresh</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+const num = (n: number | null) => Number(n ?? 0).toFixed(2);
+
+function Stat({
+  icon,
+  tint,
+  label,
+  value,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  tint: string;
+  label: string;
+  value: string;
+}) {
   return (
     <View style={styles.stat}>
+      <Ionicons name={icon} size={20} color={tint} />
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
@@ -125,17 +189,48 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f3f4f6" },
-  title: { fontSize: 22, fontWeight: "800", marginBottom: 12 },
-  card: { backgroundColor: "#fff", borderRadius: 10, padding: 16, marginBottom: 12 },
-  label: { color: "#6b7280", marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, padding: 12, fontSize: 18 },
-  primary: { backgroundColor: "#111", borderRadius: 8, padding: 14, alignItems: "center", marginTop: 12 },
-  primaryText: { color: "#fff", fontWeight: "600" },
-  note: { color: "#9ca3af", marginTop: 8, fontSize: 12 },
-  status: { color: "#16a34a", fontWeight: "700", fontSize: 16 },
-  statsRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
-  stat: { flex: 1, backgroundColor: "#fff", borderRadius: 10, padding: 16 },
-  statValue: { fontSize: 20, fontWeight: "700" },
-  statLabel: { color: "#6b7280", fontSize: 12, marginTop: 2 },
+  container: { flex: 1, backgroundColor: colors.bg },
+  content: { padding: 16 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+
+  hero: { backgroundColor: colors.card, borderRadius: radius.xl, padding: 24, alignItems: "center", ...shadow },
+  heroIcon: {
+    width: 64, height: 64, borderRadius: 20, backgroundColor: colors.accentSoft,
+    alignItems: "center", justifyContent: "center", marginBottom: 14,
+  },
+  heroTitle: { fontSize: 20, fontWeight: "800", color: colors.ink },
+  heroSub: { color: colors.inkSoft, textAlign: "center", marginTop: 6, marginBottom: 18 },
+
+  banner: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, marginBottom: 14, ...shadow,
+  },
+  bannerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  liveDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.green },
+  bannerTitle: { fontWeight: "800", color: colors.ink, fontSize: 16 },
+  bannerSub: { color: colors.muted, fontSize: 13, marginTop: 1 },
+  gpsPill: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: colors.bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 },
+  gpsText: { fontSize: 12, fontWeight: "700" },
+
+  statGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 14 },
+  stat: {
+    width: "47%", flexGrow: 1, backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, gap: 6, ...shadow,
+  },
+  statValue: { fontSize: 22, fontWeight: "800", color: colors.ink },
+  statLabel: { color: colors.muted, fontSize: 12 },
+
+  card: { backgroundColor: colors.card, borderRadius: radius.lg, padding: 16, ...shadow },
+  label: { color: colors.inkSoft, fontWeight: "600", marginBottom: 8 },
+  input: {
+    backgroundColor: colors.bg, borderRadius: radius.md, padding: 14, fontSize: 18,
+    color: colors.ink, marginBottom: 12,
+  },
+  primary: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    backgroundColor: colors.brand, borderRadius: radius.md, padding: 15,
+  },
+  primaryText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+
+  refresh: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 16 },
+  refreshText: { color: colors.muted },
 });
