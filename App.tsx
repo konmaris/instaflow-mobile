@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { StatusBar } from "expo-status-bar";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  SafeAreaView,
-} from "react-native";
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "./src/store/auth";
 import { LoginScreen } from "./src/screens/LoginScreen";
@@ -15,6 +12,7 @@ import { OrdersScreen } from "./src/screens/OrdersScreen";
 import { ShiftScreen } from "./src/screens/ShiftScreen";
 import { useShift } from "./src/store/shift";
 import { colors, shadow } from "./src/theme";
+import { tap } from "./src/lib/haptics";
 import { supabase } from "./src/lib/supabase";
 
 type Tab = "orders" | "shift";
@@ -25,6 +23,15 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] 
 ];
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppInner />
+    </SafeAreaProvider>
+  );
+}
+
+function AppInner() {
+  const insets = useSafeAreaInsets();
   const { session, profile, loading } = useAuth();
   const [tab, setTab] = useState<Tab>("orders");
   const shiftCtl = useShift({
@@ -44,7 +51,7 @@ export default function App() {
 
   if (!profile?.restaurant_id)
     return (
-      <SafeAreaView style={styles.center}>
+      <View style={[styles.center, { paddingTop: insets.top }]}>
         <Ionicons name="business-outline" size={48} color={colors.muted} />
         <Text style={styles.emptyTitle}>No restaurant linked</Text>
         <Text style={styles.muted}>
@@ -53,18 +60,22 @@ export default function App() {
         <TouchableOpacity style={styles.linkBtn} onPress={() => supabase.auth.signOut()}>
           <Text style={styles.linkText}>Sign out</Text>
         </TouchableOpacity>
-      </SafeAreaView>
+      </View>
     );
 
   const onShift = !!shiftCtl.shift;
   const firstName = (profile.full_name ?? "").split(" ")[0] || "there";
+  const selectTab = (t: Tab) => {
+    tap();
+    setTab(t);
+  };
 
   return (
-    <SafeAreaView style={styles.root}>
+    <View style={styles.root}>
       <StatusBar style="dark" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <View>
           <Text style={styles.hello}>Hi, {firstName}</Text>
           <Text style={styles.role}>{cap(profile.role)}</Text>
@@ -85,17 +96,13 @@ export default function App() {
         )}
       </View>
 
-      {/* Tab bar */}
-      <View style={styles.tabbar}>
+      {/* Tab bar — pads into the bottom safe area so it reaches the screen edge */}
+      <View style={[styles.tabbar, { paddingBottom: insets.bottom + 10 }]}>
         {TABS.map((t) => {
           const activeTab = tab === t.key;
           return (
-            <TouchableOpacity key={t.key} style={styles.tab} onPress={() => setTab(t.key)} activeOpacity={0.7}>
-              <Ionicons
-                name={t.icon}
-                size={24}
-                color={activeTab ? colors.accent : colors.muted}
-              />
+            <TouchableOpacity key={t.key} style={styles.tab} onPress={() => selectTab(t.key)} activeOpacity={0.7}>
+              <Ionicons name={t.icon} size={24} color={activeTab ? colors.accent : colors.muted} />
               <Text style={[styles.tabText, { color: activeTab ? colors.accent : colors.muted }]}>
                 {t.label}
               </Text>
@@ -103,7 +110,7 @@ export default function App() {
           );
         })}
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -123,7 +130,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 8,
     paddingBottom: 12,
   },
   hello: { fontSize: 22, fontWeight: "800", color: colors.ink },
@@ -139,10 +145,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderTopWidth: 1,
     borderTopColor: colors.line,
-    paddingTop: 8,
-    paddingBottom: 24,
+    paddingTop: 10,
     ...shadow,
   },
-  tab: { flex: 1, alignItems: "center", gap: 2 },
+  tab: { flex: 1, alignItems: "center", gap: 3 },
   tabText: { fontSize: 11, fontWeight: "600" },
 });

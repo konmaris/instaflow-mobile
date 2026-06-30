@@ -15,6 +15,7 @@ import { supabase } from "../lib/supabase";
 import type { useShift } from "../store/shift";
 import { isTrackingAsync } from "../lib/tracking";
 import { colors, radius, shadow } from "../theme";
+import { success, warn } from "../lib/haptics";
 
 export function ShiftScreen({
   profile,
@@ -46,6 +47,7 @@ export function ShiftScreen({
     setBusy(true);
     try {
       await openShift(Number(cash) || 0);
+      success();
     } catch (e) {
       Alert.alert("Could not start shift", String(e));
     } finally {
@@ -57,6 +59,7 @@ export function ShiftScreen({
     setBusy(true);
     try {
       await closeShift(Number(cash) || 0);
+      warn();
       Alert.alert("Shift closed", "Nice work today!");
     } catch (e) {
       Alert.alert("Could not end shift", String(e));

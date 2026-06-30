@@ -1,9 +1,22 @@
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Linking, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Profile, Order } from "../lib/supabase";
 import { useMyOrders, advanceOrder } from "../store/orders";
 import { StatusBadge } from "../components/StatusBadge";
 import { colors, radius, shadow } from "../theme";
+import { success, tap } from "../lib/haptics";
+
+const callCustomer = (phone: string) => {
+  tap();
+  Linking.openURL(`tel:${phone.replace(/\s/g, "")}`);
+};
+const openMaps = (address: string) => {
+  tap();
+  const q = encodeURIComponent(address);
+  Linking.openURL(
+    Platform.OS === "ios" ? `http://maps.apple.com/?daddr=${q}` : `geo:0,0?q=${q}`,
+  );
+};
 
 const NEXT: Record<string, { status: any; label: string; icon: keyof typeof Ionicons.glyphMap } | undefined> = {
   assigned: { status: "out_for_delivery", label: "Start delivery", icon: "navigate" },
@@ -51,10 +64,30 @@ export function OrdersScreen({ profile, shiftId }: { profile: Profile; shiftId: 
           <Text style={styles.total}>€{Number(o.total).toFixed(2)}</Text>
         </View>
 
+        {actionable && (!!o.customer_phone || !!o.delivery_address) && (
+          <View style={styles.quickRow}>
+            {!!o.customer_phone && (
+              <TouchableOpacity style={styles.quickBtn} onPress={() => callCustomer(o.customer_phone!)} activeOpacity={0.8}>
+                <Ionicons name="call" size={16} color={colors.ink} />
+                <Text style={styles.quickText}>Call</Text>
+              </TouchableOpacity>
+            )}
+            {!!o.delivery_address && (
+              <TouchableOpacity style={styles.quickBtn} onPress={() => openMaps(o.delivery_address!)} activeOpacity={0.8}>
+                <Ionicons name="navigate" size={16} color={colors.ink} />
+                <Text style={styles.quickText}>Maps</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {actionable && next && (
           <TouchableOpacity
             style={styles.action}
-            onPress={() => advanceOrder(o.id, next.status, shiftId)}
+            onPress={() => {
+              success();
+              advanceOrder(o.id, next.status, shiftId);
+            }}
             activeOpacity={0.85}
           >
             <Ionicons name={next.icon} size={18} color="#fff" />
@@ -123,9 +156,15 @@ const styles = StyleSheet.create({
   total: { fontWeight: "800", fontSize: 17, color: colors.ink },
   action: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-    backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 13, marginTop: 14,
+    backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 13, marginTop: 10,
   },
   actionText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  quickRow: { flexDirection: "row", gap: 10, marginTop: 12 },
+  quickBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    backgroundColor: colors.bg, borderRadius: radius.md, paddingVertical: 11,
+  },
+  quickText: { fontWeight: "700", color: colors.ink, fontSize: 14 },
   empty: { alignItems: "center", paddingVertical: 48, gap: 10 },
   emptyText: { color: colors.muted },
 });
