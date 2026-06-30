@@ -2,24 +2,25 @@ import { useEffect, useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert } from "react-native";
 import type { Profile } from "../lib/supabase";
 import { supabase } from "../lib/supabase";
-import { useShift } from "../store/shift";
-import { isTracking } from "../lib/tracking";
+import type { useShift } from "../store/shift";
+import { isTrackingAsync } from "../lib/tracking";
 
 export function ShiftScreen({
   profile,
-  getActiveOrderId,
+  shift: ctl,
 }: {
   profile: Profile;
-  getActiveOrderId: () => string | null;
+  shift: ReturnType<typeof useShift>;
 }) {
-  const { shift, loading, openShift, closeShift, refresh } = useShift({
-    restaurantId: profile.restaurant_id,
-    staffId: profile.id,
-    role: profile.role,
-    getActiveOrderId,
-  });
+  const { shift, loading, openShift, closeShift, refresh } = ctl;
   const [cash, setCash] = useState("0");
   const [tips, setTips] = useState(0);
+  const [tracking, setTracking] = useState(false);
+
+  // Reflect background GPS state.
+  useEffect(() => {
+    isTrackingAsync().then(setTracking);
+  }, [shift]);
 
   // Pull this shift's card tips total for display.
   useEffect(() => {
@@ -79,7 +80,7 @@ export function ShiftScreen({
             </Text>
             {profile.role === "rider" && (
               <Text style={styles.note}>
-                GPS: {isTracking() ? "tracking" : "off"}
+                GPS: {tracking ? "tracking" : "off"}
               </Text>
             )}
           </View>

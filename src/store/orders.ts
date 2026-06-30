@@ -64,11 +64,14 @@ export function useMyOrders(staffId: string | null, role: string | null) {
   return { active, completed, loading, refresh };
 }
 
-export async function advanceOrder(id: string, status: OrderStatus) {
+export async function advanceOrder(id: string, status: OrderStatus, shiftId?: string | null) {
   const now = new Date().toISOString();
   const patch: Partial<Order> = { status };
   if (status === "delivered" || status === "served" || status === "completed")
     patch.completed_at = now;
+  // Tie the order to the rider/waiter's open shift so the DB rolls its cash/card
+  // total (and tips) into the shift settlement when it completes.
+  if (shiftId) patch.shift_id = shiftId;
   const { error } = await supabase.from("orders").update(patch).eq("id", id);
   if (error) throw error;
 }

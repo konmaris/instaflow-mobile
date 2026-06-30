@@ -8,7 +8,13 @@ const NEXT: Record<string, { status: any; label: string } | undefined> = {
   ready: { status: "served", label: "Mark served" },
 };
 
-export function OrdersScreen({ profile }: { profile: Profile }) {
+export function OrdersScreen({
+  profile,
+  shiftId,
+}: {
+  profile: Profile;
+  shiftId: string | null;
+}) {
   const { active, completed, loading, refresh } = useMyOrders(profile.id, profile.role);
 
   const renderOrder = (o: Order, actionable: boolean) => {
@@ -25,7 +31,7 @@ export function OrdersScreen({ profile }: { profile: Profile }) {
         {o.delivery_address ? <Text style={styles.addr}>{o.delivery_address}</Text> : null}
         {o.customer_name ? <Text style={styles.addr}>{o.customer_name} · {o.customer_phone}</Text> : null}
         {actionable && next && (
-          <TouchableOpacity style={styles.action} onPress={() => advanceOrder(o.id, next.status)}>
+          <TouchableOpacity style={styles.action} onPress={() => advanceOrder(o.id, next.status, shiftId)}>
             <Text style={styles.actionText}>{next.label}</Text>
           </TouchableOpacity>
         )}

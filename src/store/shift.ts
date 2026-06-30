@@ -10,9 +10,8 @@ export function useShift(params: {
   restaurantId: string | null;
   staffId: string | null;
   role: string | null;
-  getActiveOrderId: () => string | null;
 }) {
-  const { restaurantId, staffId, role, getActiveOrderId } = params;
+  const { restaurantId, staffId, role } = params;
   const [shift, setShift] = useState<Shift | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -49,7 +48,7 @@ export function useShift(params: {
     if (error) throw error;
     setShift(data);
     if (role === "rider") {
-      await startTracking({ restaurantId, riderId: staffId, getActiveOrderId });
+      await startTracking({ restaurantId, riderId: staffId });
     }
   };
 

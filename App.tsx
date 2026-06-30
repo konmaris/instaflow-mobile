@@ -12,13 +12,20 @@ import { useAuth } from "./src/store/auth";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { OrdersScreen } from "./src/screens/OrdersScreen";
 import { ShiftScreen } from "./src/screens/ShiftScreen";
-import { getActiveDeliveryOrderId } from "./src/store/orders";
+import { useShift } from "./src/store/shift";
 
 type Tab = "orders" | "shift";
 
 export default function App() {
   const { session, profile, loading } = useAuth();
   const [tab, setTab] = useState<Tab>("orders");
+  // Shift is owned here so both tabs share it: Orders needs the open shift id to
+  // stamp orders; Shift renders the open/close UI + tallies.
+  const shiftCtl = useShift({
+    restaurantId: profile?.restaurant_id ?? null,
+    staffId: profile?.id ?? null,
+    role: profile?.role ?? null,
+  });
 
   if (loading)
     return (
@@ -43,9 +50,9 @@ export default function App() {
       <StatusBar style="dark" />
       <View style={styles.body}>
         {tab === "orders" ? (
-          <OrdersScreen profile={profile} />
+          <OrdersScreen profile={profile} shiftId={shiftCtl.shift?.id ?? null} />
         ) : (
-          <ShiftScreen profile={profile} getActiveOrderId={getActiveDeliveryOrderId} />
+          <ShiftScreen profile={profile} shift={shiftCtl} />
         )}
       </View>
       <View style={styles.tabbar}>
