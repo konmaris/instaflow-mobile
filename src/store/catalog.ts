@@ -24,6 +24,10 @@ export interface Product {
   category_id: string | null;
   is_available: boolean;
 }
+
+// A table's order is "open" (occupied / can receive more items) only in these
+// pre-completion states. 'served'/'completed' are done — a new order starts fresh.
+export const OPEN_STATUSES = ["pending", "accepted", "preparing", "ready"] as const;
 export interface ModOption {
   id: string;
   name: string;
@@ -59,7 +63,7 @@ export function useTables(restaurantId: string | null) {
         .select("table_id")
         .eq("restaurant_id", restaurantId)
         .eq("type", "dine_in")
-        .in("status", ["pending", "accepted", "preparing", "ready", "served"]),
+        .in("status", OPEN_STATUSES),
     ]);
     setZones(z.data ?? []);
     setTables((t.data ?? []) as Table[]);
@@ -158,7 +162,7 @@ export async function findOpenOrderForTable(tableId: string) {
     .select("id, order_number")
     .eq("table_id", tableId)
     .eq("type", "dine_in")
-    .in("status", ["pending", "accepted", "preparing", "ready", "served"])
+    .in("status", OPEN_STATUSES)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
