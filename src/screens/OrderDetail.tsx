@@ -30,6 +30,7 @@ interface Item {
   quantity: number;
   unit_price: number;
   notes: string | null;
+  selected_options: { option: string }[] | null;
 }
 
 export function OrderDetail({
@@ -49,7 +50,7 @@ export function OrderDetail({
   useEffect(() => {
     supabase
       .from("order_items")
-      .select("id, name, quantity, unit_price, notes")
+      .select("id, name, quantity, unit_price, notes, selected_options")
       .eq("order_id", order.id)
       .then(({ data }) => {
         setItems((data ?? []) as Item[]);
@@ -140,7 +141,10 @@ export function OrderDetail({
                   <Text style={styles.qty}>{it.quantity}×</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.itemName}>{it.name}</Text>
-                    {!!it.notes && <Text style={styles.itemNote}>{it.notes}</Text>}
+                    {!!it.selected_options?.length && (
+                      <Text style={styles.itemOpts}>{it.selected_options.map((o) => o.option).join(", ")}</Text>
+                    )}
+                    {!!it.notes && <Text style={styles.itemNote}>“{it.notes}”</Text>}
                   </View>
                   <Text style={styles.itemPrice}>€{(it.unit_price * it.quantity).toFixed(2)}</Text>
                 </View>
@@ -212,7 +216,8 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 6 },
   qty: { fontWeight: "800", color: colors.accent, fontSize: 15 },
   itemName: { color: colors.ink, fontSize: 15 },
-  itemNote: { color: colors.muted, fontSize: 13, marginTop: 1 },
+  itemOpts: { color: colors.inkSoft, fontSize: 13, marginTop: 1 },
+  itemNote: { color: colors.muted, fontSize: 13, fontStyle: "italic", marginTop: 1 },
   itemPrice: { color: colors.inkSoft, fontSize: 15 },
   totalRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.line },
   payChip: { flexDirection: "row", alignItems: "center", gap: 6 },

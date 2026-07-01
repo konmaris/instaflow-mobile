@@ -24,6 +24,18 @@ export interface Product {
   category_id: string | null;
   is_available: boolean;
 }
+export interface ModOption {
+  id: string;
+  name: string;
+  price_delta: number;
+}
+export interface ModGroup {
+  id: string;
+  name: string;
+  min_select: number;
+  max_select: number;
+  options: ModOption[];
+}
 
 /** Tables + zones for the visual table picker, with live occupancy (active dine-in). */
 export function useTables(restaurantId: string | null) {
@@ -62,16 +74,17 @@ export function useTables(restaurantId: string | null) {
   return { zones, tables, occupied, loading, refresh: load };
 }
 
-/** Active menu (categories + available products) for building an order. */
+/** Active menu (categories + products + modifier groups) for building an order. */
 export function useCatalog(restaurantId: string | null) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [modifiers, setModifiers] = useState<Record<string, ModGroup[]>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!restaurantId) return;
     (async () => {
-      const [c, p] = await Promise.all([
+      const [c, p, g] = await Promise.all([
         supabase.from("categories").select("id,name,sort_order").eq("restaurant_id", restaurantId).eq("is_active", true).order("sort_order"),
         supabase
           .from("products")
@@ -80,21 +93,82 @@ export function useCatalog(restaurantId: string | null) {
           .eq("is_active", true)
           .eq("is_available", true)
           .order("sort_order"),
+        supabase
+          .from("modifier_groups")
+          .select("id,name,min_select,max_select,product_id,sort_order,modifier_options(id,name,price_delta,is_available,sort_order)")
+          .eq("restaurant_id", restaurantId)
+          .order("sort_order"),
       ]);
       setCategories((c.data ?? []) as Category[]);
       setProducts((p.data ?? []) as Product[]);
+
+      const byProduct: Record<string, ModGroup[]> = {};
+      for (const grp of (g.data ?? []) as any[]) {
+        const options: ModOption[] = (grp.modifier_options ?? [])
+          .filter((o: any) => o.is_available)
+          .sort((a: any, b: any) => a.sort_order - b.sort_order)
+          .map((o: any) => ({ id: o.id, name: o.name, price_delta: Number(o.price_delta) }));
+        (byProduct[grp.product_id] ??= []).push({
+          id: grp.id,
+          name: grp.name,
+          min_select: grp.min_select,
+          max_select: grp.max_select,
+          options,
+        });
+      }
+      setModifiers(byProduct);
       setLoading(false);
     })();
   }, [restaurantId]);
 
-  return { categories, products, loading };
+  return { categories, products, modifiers, loading };
 }
 
+export interface SelectedOption {
+  group: string;
+  option: string;
+  price_delta: number;
+}
 export interface NewLine {
+  line_id: string; // client-side unique key (same product w/ different options = distinct)
   product_id: string;
   name: string;
-  unit_price: number;
+  base_price: number;
+  unit_price: number; // base + option deltas
   quantity: number;
+  selected_options: SelectedOption[];
+  notes?: string;
+}
+
+const toItems = (orderId: string, lines: NewLine[]) =>
+  lines.map((l) => ({
+    order_id: orderId,
+    product_id: l.product_id,
+    name: l.name,
+    unit_price: l.unit_price,
+    quantity: l.quantity,
+    selected_options: l.selected_options,
+    notes: l.notes || null,
+  }));
+
+/** Find a table's current open dine-in order, if any (to append to it). */
+export async function findOpenOrderForTable(tableId: string) {
+  const { data } = await supabase
+    .from("orders")
+    .select("id, order_number")
+    .eq("table_id", tableId)
+    .eq("type", "dine_in")
+    .in("status", ["pending", "accepted", "preparing", "ready", "served"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data as { id: string; order_number: number } | null;
+}
+
+/** Append items to an existing open order (totals recalc via DB trigger). */
+export async function appendToOrder(orderId: string, lines: NewLine[]) {
+  const { error } = await supabase.from("order_items").insert(toItems(orderId, lines) as never);
+  if (error) throw error;
 }
 
 /** Create a dine-in order taken by a waiter at a table. */
@@ -124,14 +198,7 @@ export async function createDineInOrder(input: {
     .single();
   if (error) throw error;
 
-  const items = input.lines.map((l) => ({
-    order_id: order.id,
-    product_id: l.product_id,
-    name: l.name,
-    unit_price: l.unit_price,
-    quantity: l.quantity,
-  }));
-  const { error: itemsErr } = await supabase.from("order_items").insert(items);
+  const { error: itemsErr } = await supabase.from("order_items").insert(toItems(order.id, input.lines) as never);
   if (itemsErr) throw itemsErr;
   return order.order_number as number;
 }
