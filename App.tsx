@@ -11,6 +11,8 @@ import { LoginScreen } from "./src/screens/LoginScreen";
 import { OrdersScreen } from "./src/screens/OrdersScreen";
 import { ShiftScreen } from "./src/screens/ShiftScreen";
 import { useShift } from "./src/store/shift";
+import { useMyOrders } from "./src/store/orders";
+import { ToastHost } from "./src/components/Toast";
 import { colors, shadow } from "./src/theme";
 import { tap } from "./src/lib/haptics";
 import { supabase } from "./src/lib/supabase";
@@ -39,6 +41,8 @@ function AppInner() {
     staffId: profile?.id ?? null,
     role: profile?.role ?? null,
   });
+  // Lifted here so the Orders tab can show a live active-order count badge.
+  const orders = useMyOrders(profile?.id ?? null, profile?.role ?? null);
 
   if (loading)
     return (
@@ -105,7 +109,7 @@ function AppInner() {
 
       <View style={styles.body}>
         {tab === "orders" ? (
-          <OrdersScreen profile={profile} shiftId={shiftCtl.shift?.id ?? null} />
+          <OrdersScreen orders={orders} shiftId={shiftCtl.shift?.id ?? null} />
         ) : (
           <ShiftScreen profile={profile} shift={shiftCtl} />
         )}
@@ -115,9 +119,17 @@ function AppInner() {
       <View style={[styles.tabbar, { paddingBottom: insets.bottom + 10 }]}>
         {TABS.map((t) => {
           const activeTab = tab === t.key;
+          const count = t.key === "orders" ? orders.active.length : 0;
           return (
             <TouchableOpacity key={t.key} style={styles.tab} onPress={() => selectTab(t.key)} activeOpacity={0.7}>
-              <Ionicons name={t.icon} size={24} color={activeTab ? colors.accent : colors.muted} />
+              <View>
+                <Ionicons name={t.icon} size={24} color={activeTab ? colors.accent : colors.muted} />
+                {count > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{count}</Text>
+                  </View>
+                )}
+              </View>
               <Text style={[styles.tabText, { color: activeTab ? colors.accent : colors.muted }]}>
                 {t.label}
               </Text>
@@ -125,6 +137,8 @@ function AppInner() {
           );
         })}
       </View>
+
+      <ToastHost />
     </View>
   );
 }
@@ -167,4 +181,9 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, alignItems: "center", gap: 3 },
   tabText: { fontSize: 11, fontWeight: "600" },
+  badge: {
+    position: "absolute", top: -5, right: -10, minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", paddingHorizontal: 4,
+  },
+  badgeText: { color: "#fff", fontSize: 11, fontWeight: "800" },
 });

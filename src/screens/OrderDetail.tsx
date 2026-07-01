@@ -10,13 +10,19 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
-import type { Order } from "../lib/supabase";
 import { supabase } from "../lib/supabase";
-import { advanceOrder } from "../store/orders";
+import { advanceOrder, type OrderRow } from "../store/orders";
 import { StatusBadge } from "../components/StatusBadge";
+import { toast } from "../components/Toast";
 import { colors, radius, shadow } from "../theme";
 import { NEXT, typeIcon, typeLabel, callCustomer, openMaps } from "../lib/orderFlow";
 import { success } from "../lib/haptics";
+
+const ADVANCE_TOAST: Record<string, string> = {
+  out_for_delivery: "On the way 🛵",
+  delivered: "Order delivered ✓",
+  served: "Order served ✓",
+};
 
 interface Item {
   id: string;
@@ -31,7 +37,7 @@ export function OrderDetail({
   shiftId,
   onClose,
 }: {
-  order: Order;
+  order: OrderRow;
   shiftId: string | null;
   onClose: () => void;
 }) {
@@ -96,6 +102,9 @@ export function OrderDetail({
 
           {/* Customer / address */}
           <View style={styles.card}>
+            {order.type === "dine_in" && !!order.restaurant_tables?.label && (
+              <Row icon="grid-outline" text={`Table ${order.restaurant_tables.label}`} />
+            )}
             {!!order.customer_name && <Row icon="person-outline" text={order.customer_name} />}
             {!!order.customer_phone && <Row icon="call-outline" text={order.customer_phone} />}
             {!!order.delivery_address && <Row icon="location-outline" text={order.delivery_address} />}
@@ -157,6 +166,7 @@ export function OrderDetail({
             onPress={async () => {
               success();
               await advanceOrder(order.id, next.status, shiftId);
+              toast(ADVANCE_TOAST[next.status] ?? "Order updated");
               onClose();
             }}
             activeOpacity={0.85}

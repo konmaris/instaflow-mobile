@@ -1,19 +1,34 @@
 import { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import type { Profile, Order } from "../lib/supabase";
-import { useMyOrders, advanceOrder } from "../store/orders";
+import { useMyOrders, advanceOrder, type OrderRow } from "../store/orders";
 import { StatusBadge } from "../components/StatusBadge";
+import { OrdersSkeleton } from "../components/Skeleton";
+import { toast } from "../components/Toast";
 import { OrderDetail } from "./OrderDetail";
 import { colors, radius, shadow } from "../theme";
 import { NEXT, typeIcon, callCustomer, openMaps } from "../lib/orderFlow";
 import { success, tap } from "../lib/haptics";
 
-export function OrdersScreen({ profile, shiftId }: { profile: Profile; shiftId: string | null }) {
-  const { active, completed, loading, refresh } = useMyOrders(profile.id, profile.role);
-  const [selected, setSelected] = useState<Order | null>(null);
+const ADVANCE_TOAST: Record<string, string> = {
+  out_for_delivery: "On the way 🛵",
+  delivered: "Order delivered ✓",
+  served: "Order served ✓",
+};
 
-  const renderOrder = (o: Order, actionable: boolean) => {
+export function OrdersScreen({
+  orders,
+  shiftId,
+}: {
+  orders: ReturnType<typeof useMyOrders>;
+  shiftId: string | null;
+}) {
+  const { active, completed, loading, refresh } = orders;
+  const [selected, setSelected] = useState<OrderRow | null>(null);
+
+  if (loading && active.length === 0 && completed.length === 0) return <OrdersSkeleton />;
+
+  const renderOrder = (o: OrderRow, actionable: boolean) => {
     const next = NEXT[o.status];
     return (
       <TouchableOpacity
@@ -32,6 +47,12 @@ export function OrdersScreen({ profile, shiftId }: { profile: Profile; shiftId: 
           <StatusBadge status={o.status} />
         </View>
 
+        {o.type === "dine_in" && !!o.restaurant_tables?.label && (
+          <View style={styles.tableChip}>
+            <Ionicons name="grid-outline" size={14} color={colors.accent} />
+            <Text style={styles.tableText}>Table {o.restaurant_tables.label}</Text>
+          </View>
+        )}
         {!!o.delivery_address && <Row icon="location-outline" text={o.delivery_address} />}
         {!!o.customer_name && (
           <Row icon="person-outline" text={`${o.customer_name}${o.customer_phone ? " · " + o.customer_phone : ""}`} />
@@ -69,9 +90,10 @@ export function OrdersScreen({ profile, shiftId }: { profile: Profile; shiftId: 
         {actionable && next && (
           <TouchableOpacity
             style={styles.action}
-            onPress={() => {
+            onPress={async () => {
               success();
-              advanceOrder(o.id, next.status, shiftId);
+              await advanceOrder(o.id, next.status, shiftId);
+              toast(ADVANCE_TOAST[next.status] ?? "Order updated");
             }}
             activeOpacity={0.85}
           >
@@ -137,6 +159,11 @@ const styles = StyleSheet.create({
   orderNo: { fontWeight: "800", fontSize: 17, color: colors.ink },
   row: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 4 },
   rowText: { color: colors.inkSoft, fontSize: 14, flex: 1 },
+  tableChip: {
+    flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start",
+    backgroundColor: colors.accentSoft, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 4, marginTop: 2,
+  },
+  tableText: { color: colors.accent, fontWeight: "800", fontSize: 13 },
   cardFoot: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.line,

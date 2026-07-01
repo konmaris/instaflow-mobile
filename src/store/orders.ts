@@ -6,6 +6,9 @@ type OrderStatus = Database["public"]["Enums"]["order_status"];
 
 const DONE: OrderStatus[] = ["delivered", "served", "completed"];
 
+// Order joined with its dine-in table label (for waiters).
+export type OrderRow = Order & { restaurant_tables: { label: string } | null };
+
 // The order a rider is currently delivering, so GPS breadcrumbs can be tied to
 // it. Read by the tracking loop via getActiveDeliveryOrderId().
 let _activeDeliveryOrderId: string | null = null;
@@ -19,7 +22,7 @@ export function getActiveDeliveryOrderId() {
  * waiter assignment column.
  */
 export function useMyOrders(staffId: string | null, role: string | null) {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const col = role === "rider" ? "assigned_rider_id" : "assigned_waiter_id";
@@ -28,11 +31,11 @@ export function useMyOrders(staffId: string | null, role: string | null) {
     if (!staffId) return;
     const { data } = await supabase
       .from("orders")
-      .select("*")
+      .select("*, restaurant_tables(label)")
       .eq(col, staffId)
       .order("created_at", { ascending: false })
       .limit(50);
-    setOrders(data ?? []);
+    setOrders((data ?? []) as unknown as OrderRow[]);
     setLoading(false);
   }, [staffId, col]);
 

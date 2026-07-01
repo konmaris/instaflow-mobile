@@ -7,6 +7,11 @@
     "icon": "./assets/icon.png",
     "scheme": "instaflow",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#111111"
+    },
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
