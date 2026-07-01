@@ -123,7 +123,9 @@ function AppInner() {
       </View>
 
       <View style={styles.body}>
-        {tab === "orders" && <OrdersScreen orders={orders} shiftId={shiftCtl.shift?.id ?? null} />}
+        {tab === "orders" && (
+          <OrdersScreen profile={profile} orders={orders} shiftId={shiftCtl.shift?.id ?? null} />
+        )}
         {tab === "new" && canCreate && (
           <NewOrderScreen profile={profile} shiftId={shiftCtl.shift?.id ?? null} />
         )}

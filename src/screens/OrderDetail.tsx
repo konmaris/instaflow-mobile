@@ -19,6 +19,8 @@ import { colors, radius, shadow } from "../theme";
 import { NEXT, typeIcon, typeLabel, callCustomer, openMaps } from "../lib/orderFlow";
 import { success } from "../lib/haptics";
 import { createSimSign, issueReceipt } from "../lib/fiscal";
+import { SplitBillSheet } from "./SplitBillSheet";
+import type { Profile } from "../lib/supabase";
 
 const ADVANCE_TOAST: Record<string, string> = {
   out_for_delivery: "On the way 🛵",
@@ -37,16 +39,19 @@ interface Item {
 
 export function OrderDetail({
   order,
+  profile,
   shiftId,
   onClose,
 }: {
   order: OrderRow;
+  profile: Profile;
   shiftId: string | null;
   onClose: () => void;
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
   const next = NEXT[order.status];
   const hasGeo = order.delivery_lat != null && order.delivery_lng != null;
   const fiscalIssued = order.fiscal_status === "issued";
@@ -200,6 +205,12 @@ export function OrderDetail({
             </View>
           </View>
 
+          {/* Settle / split bill */}
+          <TouchableOpacity style={styles.settleBtn} onPress={() => setSplitOpen(true)}>
+            <Ionicons name="wallet-outline" size={18} color={colors.ink} />
+            <Text style={styles.settleText}>Split / settle bill</Text>
+          </TouchableOpacity>
+
           {/* Fiscal (myDATA) */}
           <Text style={styles.section}>Receipt</Text>
           <View style={styles.card}>
@@ -247,6 +258,16 @@ export function OrderDetail({
             <Ionicons name={next.icon} size={19} color="#fff" />
             <Text style={styles.actionText}>{next.label}</Text>
           </TouchableOpacity>
+        )}
+
+        {splitOpen && (
+          <SplitBillSheet
+            profile={profile}
+            orderId={order.id}
+            orderNumber={order.order_number}
+            total={Number(order.total)}
+            onClose={() => setSplitOpen(false)}
+          />
         )}
       </View>
     </Modal>
@@ -297,6 +318,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent, margin: 16, borderRadius: radius.md, paddingVertical: 16,
   },
   actionText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  settleBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: colors.card, borderRadius: radius.md, paddingVertical: 13, marginTop: 12, ...shadow },
+  settleText: { fontWeight: "700", color: colors.ink, fontSize: 15 },
   fiscalRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   fiscalText: { color: colors.inkSoft, fontSize: 14, flex: 1 },
   fiscalBtns: { flexDirection: "row", gap: 10, marginTop: 12 },

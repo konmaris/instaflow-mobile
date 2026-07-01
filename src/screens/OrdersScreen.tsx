@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import type { Profile } from "../lib/supabase";
 import { useMyOrders, advanceOrder, type OrderRow } from "../store/orders";
 import { StatusBadge } from "../components/StatusBadge";
 import { OrdersSkeleton } from "../components/Skeleton";
@@ -17,9 +18,11 @@ const ADVANCE_TOAST: Record<string, string> = {
 };
 
 export function OrdersScreen({
+  profile,
   orders,
   shiftId,
 }: {
+  profile: Profile;
   orders: ReturnType<typeof useMyOrders>;
   shiftId: string | null;
 }) {
@@ -134,7 +137,12 @@ export function OrdersScreen({
         }
       />
       {selected && (
-        <OrderDetail order={selected} shiftId={shiftId} onClose={() => setSelected(null)} />
+        <OrderDetail
+          order={selected}
+          profile={profile}
+          shiftId={shiftId}
+          onClose={() => setSelected(null)}
+        />
       )}
     </>
   );
