@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
@@ -17,6 +18,7 @@ import { toast } from "../components/Toast";
 import { colors, radius, shadow } from "../theme";
 import { NEXT, typeIcon, typeLabel, callCustomer, openMaps } from "../lib/orderFlow";
 import { success } from "../lib/haptics";
+import { createSimSign, issueReceipt } from "../lib/fiscal";
 
 const ADVANCE_TOAST: Record<string, string> = {
   out_for_delivery: "On the way 🛵",
@@ -44,8 +46,43 @@ export function OrderDetail({
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const next = NEXT[order.status];
   const hasGeo = order.delivery_lat != null && order.delivery_lng != null;
+  const fiscalIssued = order.fiscal_status === "issued";
+
+  // In-person card via the simultaneous flow. The SoftPOS card tap is the pending
+  // integration point (Viva/other acquirer SDK) — it must return the POS result
+  // that completes sendSimInvoice.
+  const tapToPay = async () => {
+    setBusy(true);
+    try {
+      await createSimSign(order.id, Number(order.total));
+      Alert.alert(
+        "Card tap",
+        "Provider signature obtained. Presenting the card requires the SoftPOS SDK (integration pending). Once wired, its result completes the fiscal receipt.",
+      );
+      // TODO: const pos = await SoftPOS.tap({ amount: order.total, signature });
+      //       await sendSimInvoice(order.id, pos); success(); toast("Paid + receipt issued");
+    } catch (e) {
+      Alert.alert("Tap to Pay failed", String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const issueCashReceipt = async () => {
+    setBusy(true);
+    try {
+      await issueReceipt(order.id);
+      success();
+      Alert.alert("Receipt issued", "myDATA receipt issued for this order.");
+    } catch (e) {
+      Alert.alert("Could not issue receipt", String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     supabase
@@ -162,6 +199,38 @@ export function OrderDetail({
               <Text style={styles.total}>€{Number(order.total).toFixed(2)}</Text>
             </View>
           </View>
+
+          {/* Fiscal (myDATA) */}
+          <Text style={styles.section}>Receipt</Text>
+          <View style={styles.card}>
+            <View style={styles.fiscalRow}>
+              <Ionicons
+                name={fiscalIssued ? "receipt" : "receipt-outline"}
+                size={18}
+                color={fiscalIssued ? colors.green : colors.muted}
+              />
+              <Text style={[styles.fiscalText, fiscalIssued && { color: colors.green }]}>
+                {fiscalIssued
+                  ? `Receipt issued${order.fiscal_mark ? ` · ${order.fiscal_mark}` : ""}`
+                  : order.fiscal_status === "failed"
+                    ? "Fiscal failed — retry"
+                    : "No receipt yet"}
+              </Text>
+            </View>
+            {!fiscalIssued && (
+              <View style={styles.fiscalBtns}>
+                {order.payment_method === "card" && (
+                  <TouchableOpacity style={styles.tapBtn} onPress={tapToPay} disabled={busy}>
+                    <Ionicons name="card" size={17} color="#fff" />
+                    <Text style={styles.tapText}>Tap to Pay</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={styles.issueBtn} onPress={issueCashReceipt} disabled={busy}>
+                  <Text style={styles.issueText}>Issue receipt</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </ScrollView>
 
         {next && (
@@ -228,4 +297,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent, margin: 16, borderRadius: radius.md, paddingVertical: 16,
   },
   actionText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  fiscalRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  fiscalText: { color: colors.inkSoft, fontSize: 14, flex: 1 },
+  fiscalBtns: { flexDirection: "row", gap: 10, marginTop: 12 },
+  tapBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.brand, borderRadius: radius.md, paddingVertical: 12 },
+  tapText: { color: "#fff", fontWeight: "700" },
+  issueBtn: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg, borderRadius: radius.md, paddingVertical: 12 },
+  issueText: { color: colors.ink, fontWeight: "700" },
 });
