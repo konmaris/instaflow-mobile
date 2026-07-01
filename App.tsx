@@ -10,6 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "./src/store/auth";
 import { LoginScreen } from "./src/screens/LoginScreen";
 import { OrdersScreen } from "./src/screens/OrdersScreen";
+import { NewOrderScreen } from "./src/screens/NewOrderScreen";
 import { ShiftScreen } from "./src/screens/ShiftScreen";
 import { useShift } from "./src/store/shift";
 import { useMyOrders } from "./src/store/orders";
@@ -18,10 +19,11 @@ import { colors, shadow } from "./src/theme";
 import { tap } from "./src/lib/haptics";
 import { supabase } from "./src/lib/supabase";
 
-type Tab = "orders" | "shift";
+type Tab = "orders" | "new" | "shift";
 
-const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+const ALL_TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: "orders", label: "Orders", icon: "receipt-outline" },
+  { key: "new", label: "New", icon: "add-circle-outline" },
   { key: "shift", label: "Shift", icon: "time-outline" },
 ];
 
@@ -79,6 +81,9 @@ function AppInner() {
 
   const onShift = !!shiftCtl.shift;
   const firstName = (profile.full_name ?? "").split(" ")[0] || "there";
+  // Riders don't take orders; everyone else (waiter/manager/owner/admin) can.
+  const canCreate = profile.role !== "rider";
+  const tabs = ALL_TABS.filter((t) => t.key !== "new" || canCreate);
   const selectTab = (t: Tab) => {
     tap();
     setTab(t);
@@ -118,16 +123,16 @@ function AppInner() {
       </View>
 
       <View style={styles.body}>
-        {tab === "orders" ? (
-          <OrdersScreen orders={orders} shiftId={shiftCtl.shift?.id ?? null} />
-        ) : (
-          <ShiftScreen profile={profile} shift={shiftCtl} />
+        {tab === "orders" && <OrdersScreen orders={orders} shiftId={shiftCtl.shift?.id ?? null} />}
+        {tab === "new" && canCreate && (
+          <NewOrderScreen profile={profile} shiftId={shiftCtl.shift?.id ?? null} />
         )}
+        {tab === "shift" && <ShiftScreen profile={profile} shift={shiftCtl} />}
       </View>
 
       {/* Tab bar — pads into the bottom safe area so it reaches the screen edge */}
       <View style={[styles.tabbar, { paddingBottom: insets.bottom + 10 }]}>
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           const activeTab = tab === t.key;
           const count = t.key === "orders" ? orders.active.length : 0;
           return (
