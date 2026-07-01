@@ -55,6 +55,13 @@ export function ShiftScreen({
     }
   };
 
+  const confirmClose = () => {
+    Alert.alert("End shift?", "This closes your shift and stops GPS sharing.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "End shift", style: "destructive", onPress: doClose },
+    ]);
+  };
+
   const doClose = async () => {
     setBusy(true);
     try {
@@ -146,7 +153,7 @@ export function ShiftScreen({
             />
             <TouchableOpacity
               style={[styles.primary, { backgroundColor: colors.red }]}
-              onPress={doClose}
+              onPress={confirmClose}
               disabled={busy}
               activeOpacity={0.85}
             >

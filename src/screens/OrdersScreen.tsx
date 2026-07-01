@@ -1,42 +1,29 @@
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Linking, Platform } from "react-native";
+import { useState } from "react";
+import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Profile, Order } from "../lib/supabase";
 import { useMyOrders, advanceOrder } from "../store/orders";
 import { StatusBadge } from "../components/StatusBadge";
+import { OrderDetail } from "./OrderDetail";
 import { colors, radius, shadow } from "../theme";
+import { NEXT, typeIcon, callCustomer, openMaps } from "../lib/orderFlow";
 import { success, tap } from "../lib/haptics";
-
-const callCustomer = (phone: string) => {
-  tap();
-  Linking.openURL(`tel:${phone.replace(/\s/g, "")}`);
-};
-const openMaps = (address: string) => {
-  tap();
-  const q = encodeURIComponent(address);
-  Linking.openURL(
-    Platform.OS === "ios" ? `http://maps.apple.com/?daddr=${q}` : `geo:0,0?q=${q}`,
-  );
-};
-
-const NEXT: Record<string, { status: any; label: string; icon: keyof typeof Ionicons.glyphMap } | undefined> = {
-  assigned: { status: "out_for_delivery", label: "Start delivery", icon: "navigate" },
-  out_for_delivery: { status: "delivered", label: "Mark delivered", icon: "checkmark-circle" },
-  ready: { status: "served", label: "Mark served", icon: "checkmark-circle" },
-};
-
-const typeIcon: Record<string, keyof typeof Ionicons.glyphMap> = {
-  delivery: "bicycle",
-  dine_in: "restaurant",
-  pickup: "bag-handle",
-};
 
 export function OrdersScreen({ profile, shiftId }: { profile: Profile; shiftId: string | null }) {
   const { active, completed, loading, refresh } = useMyOrders(profile.id, profile.role);
+  const [selected, setSelected] = useState<Order | null>(null);
 
   const renderOrder = (o: Order, actionable: boolean) => {
     const next = NEXT[o.status];
     return (
-      <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.9}
+        onPress={() => {
+          tap();
+          setSelected(o);
+        }}
+      >
         <View style={styles.cardTop}>
           <View style={styles.orderNoRow}>
             <Ionicons name={typeIcon[o.type] ?? "receipt"} size={18} color={colors.inkSoft} />
@@ -45,9 +32,7 @@ export function OrdersScreen({ profile, shiftId }: { profile: Profile; shiftId: 
           <StatusBadge status={o.status} />
         </View>
 
-        {!!o.delivery_address && (
-          <Row icon="location-outline" text={o.delivery_address} />
-        )}
+        {!!o.delivery_address && <Row icon="location-outline" text={o.delivery_address} />}
         {!!o.customer_name && (
           <Row icon="person-outline" text={`${o.customer_name}${o.customer_phone ? " · " + o.customer_phone : ""}`} />
         )}
@@ -94,37 +79,42 @@ export function OrdersScreen({ profile, shiftId }: { profile: Profile; shiftId: 
             <Text style={styles.actionText}>{next.label}</Text>
           </TouchableOpacity>
         )}
-      </View>
+      </TouchableOpacity>
     );
   };
 
   return (
-    <FlatList
-      style={styles.list}
-      contentContainerStyle={styles.content}
-      refreshing={loading}
-      onRefresh={refresh}
-      data={active}
-      keyExtractor={(o) => o.id}
-      ListHeaderComponent={<Text style={styles.section}>Active · {active.length}</Text>}
-      renderItem={({ item }) => renderOrder(item, true)}
-      ListEmptyComponent={
-        <View style={styles.empty}>
-          <Ionicons name="cafe-outline" size={40} color={colors.muted} />
-          <Text style={styles.emptyText}>No active orders right now.</Text>
-        </View>
-      }
-      ListFooterComponent={
-        completed.length > 0 ? (
-          <View>
-            <Text style={[styles.section, { marginTop: 22 }]}>Completed · {completed.length}</Text>
-            {completed.map((o) => (
-              <View key={o.id} style={{ opacity: 0.7 }}>{renderOrder(o, false)}</View>
-            ))}
+    <>
+      <FlatList
+        style={styles.list}
+        contentContainerStyle={styles.content}
+        refreshing={loading}
+        onRefresh={refresh}
+        data={active}
+        keyExtractor={(o) => o.id}
+        ListHeaderComponent={<Text style={styles.section}>Active · {active.length}</Text>}
+        renderItem={({ item }) => renderOrder(item, true)}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Ionicons name="cafe-outline" size={40} color={colors.muted} />
+            <Text style={styles.emptyText}>No active orders right now.</Text>
           </View>
-        ) : null
-      }
-    />
+        }
+        ListFooterComponent={
+          completed.length > 0 ? (
+            <View>
+              <Text style={[styles.section, { marginTop: 22 }]}>Completed · {completed.length}</Text>
+              {completed.map((o) => (
+                <View key={o.id} style={{ opacity: 0.7 }}>{renderOrder(o, false)}</View>
+              ))}
+            </View>
+          ) : null
+        }
+      />
+      {selected && (
+        <OrderDetail order={selected} shiftId={shiftId} onClose={() => setSelected(null)} />
+      )}
+    </>
   );
 }
 

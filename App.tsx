@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { StatusBar } from "expo-status-bar";
-import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
@@ -80,11 +80,26 @@ function AppInner() {
           <Text style={styles.hello}>Hi, {firstName}</Text>
           <Text style={styles.role}>{cap(profile.role)}</Text>
         </View>
-        <View style={[styles.shiftPill, onShift ? styles.shiftOn : styles.shiftOff]}>
-          <View style={[styles.dot, { backgroundColor: onShift ? colors.green : colors.muted }]} />
-          <Text style={[styles.shiftPillText, { color: onShift ? colors.green : colors.muted }]}>
-            {onShift ? "On shift" : "Off shift"}
-          </Text>
+        <View style={styles.headerRight}>
+          <View style={[styles.shiftPill, onShift ? styles.shiftOn : styles.shiftOff]}>
+            <View style={[styles.dot, { backgroundColor: onShift ? colors.green : colors.muted }]} />
+            <Text style={[styles.shiftPillText, { color: onShift ? colors.green : colors.muted }]}>
+              {onShift ? "On shift" : "Off shift"}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.signOut}
+            onPress={() => {
+              tap();
+              Alert.alert("Sign out?", "You'll need to sign in again.", [
+                { text: "Cancel", style: "cancel" },
+                { text: "Sign out", style: "destructive", onPress: () => supabase.auth.signOut() },
+              ]);
+            }}
+            hitSlop={8}
+          >
+            <Ionicons name="log-out-outline" size={20} color={colors.inkSoft} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -134,6 +149,8 @@ const styles = StyleSheet.create({
   },
   hello: { fontSize: 22, fontWeight: "800", color: colors.ink },
   role: { fontSize: 13, color: colors.muted, marginTop: 1 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  signOut: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: colors.card, ...shadow },
   shiftPill: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
   shiftOn: { backgroundColor: colors.greenSoft },
   shiftOff: { backgroundColor: colors.line },
