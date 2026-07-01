@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from "expo-splash-screen";
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import {
   SafeAreaProvider,
@@ -24,6 +25,10 @@ const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] 
   { key: "shift", label: "Shift", icon: "time-outline" },
 ];
 
+// Keep the native splash up until we've resolved the session, then fade out.
+SplashScreen.preventAutoHideAsync().catch(() => {});
+SplashScreen.setOptions?.({ duration: 400, fade: true });
+
 export default function App() {
   return (
     <SafeAreaProvider>
@@ -43,6 +48,11 @@ function AppInner() {
   });
   // Lifted here so the Orders tab can show a live active-order count badge.
   const orders = useMyOrders(profile?.id ?? null, profile?.role ?? null);
+
+  // Hide the splash once auth has resolved (session known).
+  useEffect(() => {
+    if (!loading) SplashScreen.hideAsync().catch(() => {});
+  }, [loading]);
 
   if (loading)
     return (

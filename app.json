@@ -17,7 +17,9 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Instaflow uses your location to show customers live delivery tracking while you are on shift.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Instaflow keeps sharing your location in the background while you are on shift, so customers can track their delivery and your manager can see the fleet.",
-        "UIBackgroundModes": ["location"]
+        "UIBackgroundModes": [
+          "location"
+        ]
       },
       "bundleIdentifier": "com.konmaris.instaflow-mobile"
     },
@@ -47,6 +49,12 @@
         {
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": { "deploymentTarget": "15.1" }
         }
       ]
     ]
