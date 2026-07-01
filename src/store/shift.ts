@@ -33,6 +33,29 @@ export function useShift(params: {
     refresh();
   }, [refresh]);
 
+  // Live shift tallies: the roll-up triggers update the shift row as orders
+  // complete and tips land, so subscribe instead of manual refresh.
+  useEffect(() => {
+    if (!staffId) return;
+    const ch = supabase
+      .channel(`shift-${staffId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shifts", filter: `staff_id=eq.${staffId}` },
+        (payload) => {
+          const row = payload.new as Shift;
+          // Track the open shift; clear when it closes.
+          if (payload.eventType === "DELETE") return;
+          if (row.status === "open") setShift(row);
+          else setShift((cur) => (cur && cur.id === row.id ? null : cur));
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [staffId]);
+
   const openShift = async (openingCash: number) => {
     if (!restaurantId || !staffId) return;
     const { data, error } = await supabase

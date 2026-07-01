@@ -11,7 +11,6 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Profile } from "../lib/supabase";
-import { supabase } from "../lib/supabase";
 import type { useShift } from "../store/shift";
 import { isTrackingAsync } from "../lib/tracking";
 import { colors, radius, shadow } from "../theme";
@@ -24,23 +23,15 @@ export function ShiftScreen({
   profile: Profile;
   shift: ReturnType<typeof useShift>;
 }) {
-  const { shift, loading, openShift, closeShift, refresh } = ctl;
+  const { shift, loading, openShift, closeShift } = ctl;
   const [cash, setCash] = useState("0");
-  const [tips, setTips] = useState(0);
   const [tracking, setTracking] = useState(false);
   const [busy, setBusy] = useState(false);
+  // tips_total is maintained live on the shift row by the roll-up trigger.
+  const tips = Number(shift?.tips_total ?? 0);
 
   useEffect(() => {
     isTrackingAsync().then(setTracking);
-  }, [shift]);
-
-  useEffect(() => {
-    if (!shift) return;
-    supabase
-      .from("tips")
-      .select("amount")
-      .eq("shift_id", shift.id)
-      .then(({ data }) => setTips((data ?? []).reduce((s, t) => s + Number(t.amount), 0)));
   }, [shift]);
 
   const doOpen = async () => {
@@ -167,11 +158,6 @@ export function ShiftScreen({
           </View>
         </>
       )}
-
-      <TouchableOpacity onPress={refresh} style={styles.refresh}>
-        <Ionicons name="refresh" size={15} color={colors.muted} />
-        <Text style={styles.refreshText}>Refresh</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
